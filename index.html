@@ -22,25 +22,37 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 1rem;
+      margin-bottom: 1rem;
     }
     .dataset {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+      min-width: 280px;
+    }
+    .dataset input {
+      margin-bottom: 0.5rem;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #38bdf8;
+      background: #0f172a;
+      color: #e2e8f0;
     }
     textarea {
-      width: 280px;
-      height: 150px;
-      margin-top: 0.5rem;
+      width: 100%;
+      height: 120px;
       padding: 8px;
       border-radius: 8px;
       border: 1px solid #38bdf8;
-      background: #1e293b;
+      background: #0f172a;
       color: #e2e8f0;
       resize: vertical;
     }
     button {
-      margin: 1rem 0.5rem;
+      margin: 0.5rem;
       padding: 10px 20px;
       border: none;
       border-radius: 8px;
@@ -59,23 +71,33 @@
       background: #1e293b;
       border-radius: 8px;
       width: 90%;
-      max-width: 700px;
-      white-space: pre-wrap;
+      max-width: 800px;
+    }
+    .group {
+      margin-bottom: 1.5rem;
+    }
+    .group h3 {
+      margin-bottom: 0.5rem;
+      color: #38bdf8;
+    }
+    ul {
+      margin: 0;
+      padding-left: 1.2rem;
     }
   </style>
 </head>
 <body>
   <h1>Name Matcher</h1>
-  <p>Enter datasets of names (one per line). Add more datasets if needed.</p>
+  <p>Enter datasets of names (one per line). You can rename datasets and add more.</p>
   
   <div class="datasets" id="datasets">
     <div class="dataset">
-      <label>Dataset 1</label>
-      <textarea placeholder="Dataset 1:&#10;Adams, John&#10;Franklin, Ben"></textarea>
+      <input type="text" value="Dataset 1">
+      <textarea placeholder="Adams, John&#10;Franklin, Ben"></textarea>
     </div>
     <div class="dataset">
-      <label>Dataset 2</label>
-      <textarea placeholder="Dataset 2:&#10;Adams, John&#10;Washington, George"></textarea>
+      <input type="text" value="Dataset 2">
+      <textarea placeholder="Adams, John&#10;Washington, George"></textarea>
     </div>
   </div>
   
@@ -93,60 +115,108 @@
       const wrapper = document.createElement("div");
       wrapper.className = "dataset";
       wrapper.innerHTML = `
-        <label>Dataset ${count}</label>
-        <textarea placeholder="Dataset ${count}:&#10;Name A&#10;Name B"></textarea>
+        <input type="text" value="Dataset ${count}">
+        <textarea placeholder="Name A&#10;Name B"></textarea>
       `;
       datasetsDiv.appendChild(wrapper);
     }
 
     function findMatches() {
-      const datasetElements = document.querySelectorAll(".dataset textarea");
-      const datasets = Array.from(datasetElements).map((el, idx) =>
-        el.value.split("\n").map(x => x.trim()).filter(x => x)
-      );
+      const datasetWrappers = document.querySelectorAll(".dataset");
+      const datasets = Array.from(datasetWrappers).map(wrapper => {
+        const label = wrapper.querySelector("input").value.trim();
+        const names = wrapper.querySelector("textarea").value
+          .split("\n").map(x => x.trim()).filter(x => x);
+        return { label, names };
+      });
 
       // Map of name -> which datasets it appears in
       const nameMap = new Map();
-      datasets.forEach((dataset, i) => {
-        dataset.forEach(name => {
+      datasets.forEach(dataset => {
+        dataset.names.forEach(name => {
           if (!nameMap.has(name)) {
             nameMap.set(name, new Set());
           }
-          nameMap.get(name).add(i + 1); // store dataset number
+          nameMap.get(name).add(dataset.label);
         });
       });
 
-      // Collect results
-      const results = [];
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "";
+
+      // Group matches (in 2+ datasets)
+      const grouped = {};
       nameMap.forEach((sets, name) => {
         if (sets.size > 1) {
-          results.push({
-            name,
-            datasets: [...sets].sort((a, b) => a - b)
-          });
+          const key = sets.size; 
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push({ name, datasets: [...sets].sort() });
         }
       });
 
-      if (results.length === 0) {
-        document.getElementById("results").textContent = "No matches found.";
-        return;
+      if (Object.keys(grouped).length === 0) {
+        const noMatches = document.createElement("p");
+        noMatches.textContent = "No matches found.";
+        resultsDiv.appendChild(noMatches);
+      } else {
+        const header = document.createElement("h2");
+        header.textContent = "Matches";
+        resultsDiv.appendChild(header);
+
+        const sortedGroupKeys = Object.keys(grouped).map(Number).sort((a,b) => b-a);
+        sortedGroupKeys.forEach(size => {
+          const groupDiv = document.createElement("div");
+          groupDiv.className = "group";
+          const title = document.createElement("h3");
+          title.textContent = `Names in ${size} dataset${size > 1 ? "s" : ""}`;
+          groupDiv.appendChild(title);
+
+          const ul = document.createElement("ul");
+          grouped[size].sort((a, b) => a.name.localeCompare(b.name)).forEach(r => {
+            const li = document.createElement("li");
+            li.textContent = `${r.name} — [${r.datasets.join(", ")}]`;
+            ul.appendChild(li);
+          });
+
+          groupDiv.appendChild(ul);
+          resultsDiv.appendChild(groupDiv);
+        });
       }
 
-      // Sort by number of datasets, then lexicographically
-      results.sort((a, b) => {
-        if (b.datasets.length !== a.datasets.length) {
-          return b.datasets.length - a.datasets.length;
+      // Unique names (only in 1 dataset)
+      const uniquesByDataset = {};
+      nameMap.forEach((sets, name) => {
+        if (sets.size === 1) {
+          const dataset = [...sets][0];
+          if (!uniquesByDataset[dataset]) uniquesByDataset[dataset] = [];
+          uniquesByDataset[dataset].push(name);
         }
-        return a.name.localeCompare(b.name);
       });
 
-      // Format output
-      let output = "Matches:\n\n";
-      results.forEach(r => {
-        output += `${r.name} — appears in datasets ${r.datasets.join(", ")}\n`;
-      });
+      const uniqueKeys = Object.keys(uniquesByDataset);
+      if (uniqueKeys.length > 0) {
+        const header = document.createElement("h2");
+        header.textContent = "Unique Names";
+        resultsDiv.appendChild(header);
 
-      document.getElementById("results").textContent = output;
+        uniqueKeys.forEach(label => {
+          const groupDiv = document.createElement("div");
+          groupDiv.className = "group";
+          const title = document.createElement("h3");
+          title.textContent = `Exclusive to ${label}`;
+          groupDiv.appendChild(title);
+
+          const ul = document.createElement("ul");
+          uniquesByDataset[label].sort((a, b) => a.localeCompare(b)).forEach(name => {
+            const li = document.createElement("li");
+            li.textContent = name;
+            ul.appendChild(li);
+          });
+
+          groupDiv.appendChild(ul);
+          resultsDiv.appendChild(groupDiv);
+        });
+      }
     }
   </script>
 </body>
