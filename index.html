@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Name Matcher</title>
+  <title>Datasets Comparison</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -23,36 +23,41 @@
       justify-content: center;
       gap: 1rem;
       margin-bottom: 1rem;
+      width: 100%;
+      max-width: 900px;
     }
     .dataset {
+      flex: 1 1 280px;
       display: flex;
       flex-direction: column;
-      align-items: stretch;
       background: #1e293b;
       padding: 1rem;
       border-radius: 8px;
-      min-width: 280px;
+      box-sizing: border-box;
     }
-    .dataset input {
+    .dataset input,
+    .dataset textarea {
+      width: 100%;
+      box-sizing: border-box;
       margin-bottom: 0.5rem;
-      padding: 6px;
+      padding: 8px;
       border-radius: 6px;
       border: 1px solid #38bdf8;
       background: #0f172a;
       color: #e2e8f0;
     }
     textarea {
-      width: 100%;
       height: 120px;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1px solid #38bdf8;
-      background: #0f172a;
-      color: #e2e8f0;
       resize: vertical;
     }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
     button {
-      margin: 0.5rem;
       padding: 10px 20px;
       border: none;
       border-radius: 8px;
@@ -65,13 +70,19 @@
     button:hover {
       background: #0ea5e9;
     }
+    .toggles {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
     .results {
       margin-top: 1rem;
       padding: 1rem;
       background: #1e293b;
       border-radius: 8px;
-      width: 90%;
-      max-width: 800px;
+      width: 100%;
+      max-width: 900px;
     }
     .group {
       margin-bottom: 1.5rem;
@@ -87,8 +98,8 @@
   </style>
 </head>
 <body>
-  <h1>Name Matcher</h1>
-  <p>Enter datasets of names (one per line). You can rename datasets and add more.</p>
+  <h1>Datasets Comparison</h1>
+  <p>Enter datasets (one per line).</p>
   
   <div class="datasets" id="datasets">
     <div class="dataset">
@@ -101,9 +112,14 @@
     </div>
   </div>
   
-  <div>
+  <div class="controls">
     <button onclick="addDataset()">➕ Add Dataset</button>
     <button onclick="findMatches()">🔍 Find Matches</button>
+  </div>
+
+  <div class="toggles">
+    <label><input type="checkbox" id="showMatches" checked> Show Matches</label>
+    <label><input type="checkbox" id="showUniques" checked> Show Unique Names</label>
   </div>
   
   <div class="results" id="results">Matches will appear here.</div>
@@ -130,6 +146,9 @@
         return { label, names };
       });
 
+      const showMatches = document.getElementById("showMatches").checked;
+      const showUniques = document.getElementById("showUniques").checked;
+
       // Map of name -> which datasets it appears in
       const nameMap = new Map();
       datasets.forEach(dataset => {
@@ -144,78 +163,83 @@
       const resultsDiv = document.getElementById("results");
       resultsDiv.innerHTML = "";
 
-      // Group matches (in 2+ datasets)
-      const grouped = {};
-      nameMap.forEach((sets, name) => {
-        if (sets.size > 1) {
-          const key = sets.size; 
-          if (!grouped[key]) grouped[key] = [];
-          grouped[key].push({ name, datasets: [...sets].sort() });
-        }
-      });
-
-      if (Object.keys(grouped).length === 0) {
-        const noMatches = document.createElement("p");
-        noMatches.textContent = "No matches found.";
-        resultsDiv.appendChild(noMatches);
-      } else {
-        const header = document.createElement("h2");
-        header.textContent = "Matches";
-        resultsDiv.appendChild(header);
-
-        const sortedGroupKeys = Object.keys(grouped).map(Number).sort((a,b) => b-a);
-        sortedGroupKeys.forEach(size => {
-          const groupDiv = document.createElement("div");
-          groupDiv.className = "group";
-          const title = document.createElement("h3");
-          title.textContent = `Names in ${size} dataset${size > 1 ? "s" : ""}`;
-          groupDiv.appendChild(title);
-
-          const ul = document.createElement("ul");
-          grouped[size].sort((a, b) => a.name.localeCompare(b.name)).forEach(r => {
-            const li = document.createElement("li");
-            li.textContent = `${r.name} — [${r.datasets.join(", ")}]`;
-            ul.appendChild(li);
-          });
-
-          groupDiv.appendChild(ul);
-          resultsDiv.appendChild(groupDiv);
+      // Matches
+      if (showMatches) {
+        const grouped = {};
+        nameMap.forEach((sets, name) => {
+          if (sets.size > 1) {
+            const key = sets.size;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push({ name, datasets: [...sets].sort() });
+          }
         });
+
+        if (Object.keys(grouped).length > 0) {
+          const header = document.createElement("h2");
+          header.textContent = "Matches";
+          resultsDiv.appendChild(header);
+
+          const sortedGroupKeys = Object.keys(grouped).map(Number).sort((a,b) => b-a);
+          sortedGroupKeys.forEach(size => {
+            const groupDiv = document.createElement("div");
+            groupDiv.className = "group";
+            const title = document.createElement("h3");
+            title.textContent = `Names in ${size} dataset${size > 1 ? "s" : ""}`;
+            groupDiv.appendChild(title);
+
+            const ul = document.createElement("ul");
+            grouped[size].sort((a, b) => a.name.localeCompare(b.name)).forEach(r => {
+              const li = document.createElement("li");
+              li.textContent = `${r.name} — [${r.datasets.join(", ")}]`;
+              ul.appendChild(li);
+            });
+
+            groupDiv.appendChild(ul);
+            resultsDiv.appendChild(groupDiv);
+          });
+        }
       }
 
-      // Unique names (only in 1 dataset)
-      const uniquesByDataset = {};
-      nameMap.forEach((sets, name) => {
-        if (sets.size === 1) {
-          const dataset = [...sets][0];
-          if (!uniquesByDataset[dataset]) uniquesByDataset[dataset] = [];
-          uniquesByDataset[dataset].push(name);
-        }
-      });
-
-      const uniqueKeys = Object.keys(uniquesByDataset);
-      if (uniqueKeys.length > 0) {
-        const header = document.createElement("h2");
-        header.textContent = "Unique Names";
-        resultsDiv.appendChild(header);
-
-        uniqueKeys.forEach(label => {
-          const groupDiv = document.createElement("div");
-          groupDiv.className = "group";
-          const title = document.createElement("h3");
-          title.textContent = `Exclusive to ${label}`;
-          groupDiv.appendChild(title);
-
-          const ul = document.createElement("ul");
-          uniquesByDataset[label].sort((a, b) => a.localeCompare(b)).forEach(name => {
-            const li = document.createElement("li");
-            li.textContent = name;
-            ul.appendChild(li);
-          });
-
-          groupDiv.appendChild(ul);
-          resultsDiv.appendChild(groupDiv);
+      // Unique names
+      if (showUniques) {
+        const uniquesByDataset = {};
+        nameMap.forEach((sets, name) => {
+          if (sets.size === 1) {
+            const dataset = [...sets][0];
+            if (!uniquesByDataset[dataset]) uniquesByDataset[dataset] = [];
+            uniquesByDataset[dataset].push(name);
+          }
         });
+
+        const uniqueKeys = Object.keys(uniquesByDataset);
+        if (uniqueKeys.length > 0) {
+          const header = document.createElement("h2");
+          header.textContent = "Unique Names";
+          resultsDiv.appendChild(header);
+
+          uniqueKeys.forEach(label => {
+            const groupDiv = document.createElement("div");
+            groupDiv.className = "group";
+            const title = document.createElement("h3");
+            title.textContent = `Exclusive to ${label}`;
+            groupDiv.appendChild(title);
+
+            const ul = document.createElement("ul");
+            uniquesByDataset[label].sort((a, b) => a.localeCompare(b)).forEach(name => {
+              const li = document.createElement("li");
+              li.textContent = name;
+              ul.appendChild(li);
+            });
+
+            groupDiv.appendChild(ul);
+            resultsDiv.appendChild(groupDiv);
+          });
+        }
+      }
+
+      // If nothing selected
+      if (!showMatches && !showUniques) {
+        resultsDiv.textContent = "No sections selected. Please enable Matches and/or Unique Names.";
       }
     }
   </script>
